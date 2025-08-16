@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,28 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { FileText, Upload, Sparkles, Save, Mail, History, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { api } from "@/lib/api";
 
-// Mock API - replace with actual API implementation
-const api = {
-  createSummary: async (data: any) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    return {
-      _id: 'mock-id',
-      title: data.title || 'Meeting Summary',
-      summary: `## Meeting Summary\n\n**Date:** ${new Date().toLocaleDateString()}\n**Duration:** 45 minutes\n\n### Key Decisions\n- Approved Q4 marketing budget\n- Selected new project management tool\n- Scheduled product launch\n\n### Action Items\n- **Sarah**: Prepare budget breakdown\n- **John**: Set up workspace\n- **Team**: Review specifications\n\n${data.instructions ? `\n### Applied Instructions\n${data.instructions}` : ''}`,
-      instructions: data.instructions
-    };
-  },
-  updateMeeting: async (id: string, data: any) => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return { _id: id, ...data };
-  },
-  sendEmail: async (id: string, recipients: string[], subject: string) => {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    return { success: true };
-  }
-};
+// Using real backend API from '@/lib/api'
 
 export default function ImprovedSummaryInterface() {
   const [title, setTitle] = useState('');
@@ -43,6 +24,14 @@ export default function ImprovedSummaryInterface() {
   const [meeting, setMeeting] = useState<any | null>(null);
   const [recipients, setRecipients] = useState('');
   const { toast } = useToast();
+  const summaryRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll to summary section when a meeting is set
+  useEffect(() => {
+    if (meeting && summaryRef.current) {
+      summaryRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [meeting]);
 
   const canGenerate = useMemo(() => (text && text.trim().length > 0) || file, [text, file]);
 
@@ -52,10 +41,6 @@ export default function ImprovedSummaryInterface() {
     try {
       const data = await api.createSummary({ title, text, instructions, file });
       setMeeting(data);
-      toast({
-        title: "Summary generated!",
-        description: "Your meeting summary is ready for review and editing.",
-      });
     } catch (e: any) {
       const errorMessage = e?.message || 'Failed to generate summary';
       setError(errorMessage);
@@ -272,43 +257,44 @@ export default function ImprovedSummaryInterface() {
 
           {/* Output Section */}
           {meeting && (
-            <Card className="card-gradient hover-lift">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-6 h-6 text-accent" />
-                  <CardTitle className="text-2xl">Generated Summary</CardTitle>
-                </div>
-                <CardDescription className="text-base">
-                  Review and edit your AI-generated summary before sharing
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Editable Title */}
-                <div className="space-y-2">
-                  <Label htmlFor="summary-title" className="text-sm font-medium">Summary Title</Label>
-                  <Input
-                    id="summary-title"
-                    value={meeting.title || ''}
-                    onChange={(e) => setMeeting({ ...meeting, title: e.target.value })}
-                    placeholder="Meeting Summary Title"
-                    className="h-11 font-medium"
-                  />
-                </div>
+            <div ref={summaryRef}>
+              <Card className="card-gradient hover-lift">
+                <CardHeader>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-6 h-6 text-accent" />
+                    <CardTitle className="text-2xl">Generated Summary</CardTitle>
+                  </div>
+                  <CardDescription className="text-base">
+                    Review and edit your AI-generated summary before sharing
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Editable Title */}
+                  <div className="space-y-2">
+                    <Label htmlFor="summary-title" className="text-sm font-medium">Summary Title</Label>
+                    <Input
+                      id="summary-title"
+                      value={meeting.title || ''}
+                      onChange={(e) => setMeeting({ ...meeting, title: e.target.value })}
+                      placeholder="Enter a concise summary title"
+                      className="h-11 font-medium"
+                    />
+                  </div>
 
-                {/* Editable Summary */}
-                <div className="space-y-2">
-                  <Label htmlFor="summary-content" className="text-sm font-medium">Summary Content</Label>
-                  <Textarea
-                    id="summary-content"
-                    value={meeting.summary || ''}
-                    onChange={(e) => setMeeting({ ...meeting, summary: e.target.value })}
-                    className="min-h-[300px] font-mono text-sm leading-relaxed"
-                  />
-                </div>
+                  {/* Editable Summary */}
+                  <div className="space-y-2">
+                    <Label htmlFor="summary-content" className="text-sm font-medium">Summary Content</Label>
+                    <Textarea
+                      id="summary-content"
+                      value={meeting.summary || ''}
+                      onChange={(e) => setMeeting({ ...meeting, summary: e.target.value })}
+                      className="min-h-[300px] font-mono text-sm leading-relaxed"
+                    />
+                  </div>
 
-                <Separator />
+                  <Separator />
 
-                {/* Email Section */}
+                  {/* Email Section */}
                 <div className="space-y-3">
                   <Label htmlFor="recipients" className="text-sm font-medium">Email Recipients</Label>
                   <div className="flex flex-col sm:flex-row gap-3">
@@ -341,8 +327,9 @@ export default function ImprovedSummaryInterface() {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </div>
       </div>
