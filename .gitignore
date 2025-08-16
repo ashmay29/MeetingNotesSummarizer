@@ -1,0 +1,59 @@
+# Root .gitignore for MeetingNotesSummarizer (cross-platform)
+
+# OS / Editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment files (keep the examples tracked)
+.env
+.env.*
+!.env.example
+backend/.env
+backend_py/.env
+frontend/.env
+!backend/.env.example
+!backend_py/.env.example
+!frontend/.env.example
+frontend\.env.example
+
+# Frontend (Node / Next.js)
+frontend\node_modules
+frontend/node_modules
+frontend/.next
+frontend/out/
+frontend/.turbo/
+frontend/.vercel/
+
+# Python (FastAPI backend)
+backend_py/.venv/
+backend_py/venv/
+**/__pycache__/
+**/*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+
+# Python build / test cache
+build/
+dist/
+.eggs/
+*.egg-info/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Misc caches
+coverage/
+.cache/
