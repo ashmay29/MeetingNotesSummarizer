@@ -16,6 +16,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Environment files (keep the examples tracked)
+frontend/.env.example
 .env
 .env.*
 !.env.example
