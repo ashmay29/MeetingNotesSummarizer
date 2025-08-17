@@ -1,0 +1,12 @@
+[09:00 AM] Alex (Backend): Update from me — payment gateway integration is complete. Current blocker: duplicate charges bug. Fix in progress. ETA today evening.  
+[09:03 AM] Priya (Content): Blog posts are drafted. Waiting on marketing for approval. I’ll start next batch tomorrow.  
+[09:05 AM] John (Frontend): Working on improving page load speed. Initial optimizations cut load time by 30%. Next step: lazy load images.  
+[09:07 AM] Manager: Any blockers?  
+[09:08 AM] Alex: API key approval from finance is pending. Without that, I can’t test production environment.  
+[09:09 AM] Manager: I’ll escalate to finance. Priya, any dependencies?  
+[09:10 AM] Priya: Need updated product screenshots from design.  
+[09:11 AM] Designer (Neha): I’ll send them by today.  
+[09:13 AM] John: No blockers, but we should decide whether to adopt React Query or SWR for API caching.  
+[09:14 AM] Manager: Good point. Let’s do a quick POC this week.  
+[09:16 AM] QA (David): Regression tests caught 4 bugs yesterday — 2 fixed, 2 pending. Will re-run once today’s build is deployed.  
+[09:18 AM] Manager: Noted. Action items: Alex to fix bug + wait for API approval, Priya to continue blog drafts, Neha to send screenshots, John to run caching POC.  

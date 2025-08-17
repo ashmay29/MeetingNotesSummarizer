@@ -1,5 +1,6 @@
 "use client";
 import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { FileText, Upload, Sparkles, Save, Mail, History, AlertCircle } from "lucide-react";
+import { FileText, Upload, Sparkles, Save, Mail, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
 // Using real backend API from '@/lib/api'
 
 export default function ImprovedSummaryInterface() {
+  const router = useRouter();
   const [title, setTitle] = useState('');
   const [text, setText] = useState('');
   const [instructions, setInstructions] = useState('Executive summary in bullet points');
@@ -41,6 +43,10 @@ export default function ImprovedSummaryInterface() {
     try {
       const data = await api.createSummary({ title, text, instructions, file });
       setMeeting(data);
+      if (data?._id) {
+        router.push(`/meetings/${data._id}`);
+        return; // no further UI work needed on this page
+      }
     } catch (e: any) {
       const errorMessage = e?.message || 'Failed to generate summary';
       setError(errorMessage);
@@ -115,12 +121,6 @@ export default function ImprovedSummaryInterface() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
     setFile(selectedFile);
-    if (selectedFile) {
-      toast({
-        title: "File selected",
-        description: `Selected: ${selectedFile.name}`,
-      });
-    }
   };
 
   return (
@@ -245,12 +245,6 @@ export default function ImprovedSummaryInterface() {
                     </>
                   )}
                 </Button>
-                <Link href="/history">
-                  <Button variant="outline" size="lg" className="h-11">
-                    <History className="w-4 h-4 mr-2" />
-                    View History
-                  </Button>
-                </Link>
               </div>
             </CardContent>
           </Card>
