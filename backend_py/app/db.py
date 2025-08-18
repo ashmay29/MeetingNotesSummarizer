@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded before reading them below
+load_dotenv()
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
 _client: AsyncIOMotorClient | None = None

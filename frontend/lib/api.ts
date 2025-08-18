@@ -52,4 +52,10 @@ export const api = {
     });
     return handle(res);
   },
+
+  async searchMeetings(q: string, scope: 'title' | 'summary' | 'both' = 'both', limit = 10) {
+    const url = `${BASE}/api/meetings/search?q=${encodeURIComponent(q)}&scope=${scope}&limit=${limit}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    return handle(res);
+  },
 };

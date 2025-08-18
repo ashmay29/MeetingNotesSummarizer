@@ -5,7 +5,6 @@ from email.message import EmailMessage
 from dotenv import load_dotenv
 load_dotenv()
 
-
 async def send_email(to: List[str], subject: str, text: Optional[str] = None, html: Optional[str] = None):
     host = os.getenv("SMTP_HOST")
     port = int(os.getenv("SMTP_PORT", "587"))
@@ -51,7 +50,6 @@ async def send_email(to: List[str], subject: str, text: Optional[str] = None, ht
     try:
         response = await send_via(port)
     except aiosmtplib.errors.SMTPAuthenticationError as auth_err:
-        # Fallback between 587 and 465 on auth failures
         alt_port = 465 if port != 465 else 587
         if debug:
             print(f"[SMTP] auth failed on {port} ({auth_err}); retrying {alt_port}")
