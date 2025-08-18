@@ -44,11 +44,11 @@ export const api = {
     return handle(res);
   },
 
-  async sendEmail(id: string, to: string[], subject?: string) {
+  async sendEmail(id: string, to: string[], subject?: string, text?: string, html?: string) {
     const res = await fetch(`${BASE}/api/meetings/${id}/email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to, subject }),
+      body: JSON.stringify({ to, subject, text, html }),
     });
     return handle(res);
   },

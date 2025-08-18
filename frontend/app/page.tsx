@@ -42,7 +42,6 @@ export default function ImprovedSummaryInterface() {
     setError(null);
     try {
       const data = await api.createSummary({ title, text, instructions, file });
-      setMeeting(data);
       if (data?._id) {
         router.push(`/meetings/${data._id}`);
         return; // no further UI work needed on this page
@@ -124,7 +123,15 @@ export default function ImprovedSummaryInterface() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 py-8">
+    <div className="min-h-screen bg-muted/30 py-8 relative">
+      {loading && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 backdrop-blur-sm">
+          <div className="rounded-xl border border-white/10 bg-background/90 px-6 py-5 shadow-xl flex items-center gap-3">
+            <Sparkles className="w-5 h-5 animate-spin" />
+            <span className="font-medium">Generating summary…</span>
+          </div>
+        </div>
+      )}
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header Section */}
         <div className="text-center mb-8">
@@ -249,8 +256,8 @@ export default function ImprovedSummaryInterface() {
             </CardContent>
           </Card>
 
-          {/* Output Section */}
-          {meeting && (
+          {/* Output Section (disabled to avoid pre-navigation flash of unformatted content) */}
+          {false && meeting && (
             <div ref={summaryRef}>
               <Card className="card-gradient hover-lift">
                 <CardHeader>

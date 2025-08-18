@@ -6,6 +6,7 @@ from typing import Optional, List
 from .db import db
 from .services.summarizer import summarize
 from .services.mailer import send_email
+import markdown as md
 from pymongo import ReturnDocument
 
 router = APIRouter()
@@ -101,7 +102,19 @@ async def email_summary(id: str, body: dict):
         raise HTTPException(status_code=404, detail="Not found")
 
     subj = subject or item.get("title") or "Meeting Summary"
-    html = f"<div><h2>{subj}</h2><pre style=\"white-space:pre-wrap;font-family:inherit\">{item.get('summary','')}</pre></div>"
+    provided_html = body.get("html")
+    if provided_html and isinstance(provided_html, str) and provided_html.strip():
+        html = provided_html
+    else:
+        # Convert Markdown summary to HTML for styled emails
+        summary_md = item.get("summary", "")
+        summary_html = md.markdown(summary_md, extensions=["extra", "sane_lists"])
+        html = (
+            f"<div style='font-family:Inter,Segoe UI,Arial,sans-serif;line-height:1.6;color:#111827'>"
+            f"<h2 style='margin:0 0 12px;font-size:20px'>{subj}</h2>"
+            f"<div>{summary_html}</div>"
+            f"</div>"
+        )
 
     try:
         info = await send_email(to=to, subject=subj, text=item.get("summary", ""), html=html)

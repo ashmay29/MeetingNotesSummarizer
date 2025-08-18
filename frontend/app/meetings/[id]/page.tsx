@@ -16,6 +16,7 @@ export default function MeetingDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -40,7 +41,7 @@ export default function MeetingDetailPage() {
         summary: meeting.summary,
       });
       setMeeting(updated);
-      alert('Saved');
+      setNotice('Saved changes.');
       setIsEditing(false);
     } catch (e: any) {
       setError(e?.message || 'Failed to save');
@@ -57,8 +58,8 @@ export default function MeetingDetailPage() {
     try {
       setLoading(true);
       setError(null);
-      await api.sendEmail(meeting._id, to, meeting.title || 'Meeting Summary');
-      alert('Email sent');
+      await api.sendEmail(meeting._id, to, meeting.title || 'Meeting Summary', meeting.summary || '');
+      setNotice('Email sent successfully.');
     } catch (e: any) {
       setError(e?.message || 'Failed to send email');
     } finally {
@@ -71,8 +72,8 @@ export default function MeetingDetailPage() {
   if (!meeting) return <p className="muted">Not found</p>;
 
   return (
-    <div className="grid gap-8">
-      <section className="card p-6 md:p-8 hover-lift">
+    <div className="grid gap-6">
+      <section className="card p-5 md:p-6 hover-lift space-y-3">
         <div className="flex items-center justify-between">
           <button className="btn-ghost text-sm px-2 py-1 rounded-md" onClick={() => router.back()}>&larr; Back</button>
           <div className="flex items-center gap-2">
@@ -94,9 +95,9 @@ export default function MeetingDetailPage() {
         </div>
 
         
-        <div className="flex items-center gap-2 mb-1">
-          <Sparkles className="w-6 h-6 text-gradient" />
-          <h2 className="h2 leading-tight">Meeting <span className="text-gradient">Summary</span></h2>
+        <div className="flex items-center gap-2 mb-2 mt-1">
+          <Sparkles className="w-6 h-6 text-accent" />
+          <h2 className="text-3xl md:text-4xl font-extrabold leading-tight">Meeting <span className="text-gradient">Summary</span></h2>
         </div>
         
 
@@ -126,11 +127,11 @@ export default function MeetingDetailPage() {
         ) : (
           <>
             {/* Clean, styled view */}
-            <h3 className="text-2xl font-bold leading-tight mb-1">{meeting.title || 'Untitled Meeting'}</h3>
+            <h3 className="text-lg md:text-xl font-semibold leading-tight mb-1 text-white/90">{meeting.title || 'Untitled Meeting'}</h3>
             {meeting.instructions ? (
-              <p className="text-white/80 font-medium leading-snug mb-2">{meeting.instructions}</p>
+              <p className="text-white/80 font-medium leading-snug mb-3">{meeting.instructions}</p>
             ) : null}
-            <div className="p-6 rounded-2xl border border-white/10 bg-white/5">
+            <div className="p-5 md:p-6 rounded-2xl border border-white/10 bg-white/5">
               <div className="max-w-none markdown-body">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {meeting.summary || ''}
@@ -140,7 +141,7 @@ export default function MeetingDetailPage() {
           </>
         )}
 
-        <div className="my-3 border-t border-white/10" />
+        <div className="my-2 border-t border-white/10" />
 
         <div className="flex gap-3 mt-4 flex-wrap items-center">
           <input
@@ -152,6 +153,7 @@ export default function MeetingDetailPage() {
           <button className="btn btn-secondary" onClick={handleSendEmail}>
             <Mail className="w-4 h-4 mr-2" /> Send Email
           </button>
+          {notice ? <span className="text-green-400 text-sm">{notice}</span> : null}
           {isEditing ? (
             <>
               <button className="btn btn-primary" onClick={handleSaveEdited}>
