@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import { History as HistoryIcon, FileText, ExternalLink, AlertCircle, ArrowLeft } from "lucide-react";
+import { History as HistoryIcon, FileText, ExternalLink, AlertCircle, ArrowLeft, Trash2 } from "lucide-react";
 
 export default function HistoryPage() {
   const [items, setItems] = useState<any[]>([]);
@@ -17,6 +17,7 @@ export default function HistoryPage() {
   const [scope, setScope] = useState<'title' | 'summary' | 'both'>('both');
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<any[] | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -52,6 +53,23 @@ export default function HistoryPage() {
     }, 300);
     return () => { cancelled = true; clearTimeout(t); };
   }, [q, scope]);
+
+  async function onDelete(id: string) {
+    if (!id) return;
+    const ok = window.confirm('Delete this summary permanently?');
+    if (!ok) return;
+    try {
+      setDeletingId(id);
+      await api.deleteMeeting(id);
+      // Optimistically remove from both lists
+      setItems(prev => prev.filter(m => m._id !== id));
+      setResults(prev => prev ? prev.filter(m => m._id !== id) : prev);
+    } catch (e: any) {
+      alert(e?.message || 'Failed to delete');
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-muted/30 py-8">
@@ -155,6 +173,16 @@ export default function HistoryPage() {
                             Open
                           </Button>
                         </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                          onClick={() => onDelete(m._id)}
+                          disabled={deletingId === m._id}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          {deletingId === m._id ? 'Deleting…' : 'Delete'}
+                        </Button>
                       </div>
                     </li>
                   ))}
@@ -183,6 +211,16 @@ export default function HistoryPage() {
                           Open
                         </Button>
                       </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                        onClick={() => onDelete(m._id)}
+                        disabled={deletingId === m._id}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        {deletingId === m._id ? 'Deleting…' : 'Delete'}
+                      </Button>
                     </div>
                   </li>
                 ))}

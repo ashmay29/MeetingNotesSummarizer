@@ -58,4 +58,11 @@ export const api = {
     const res = await fetch(url, { cache: 'no-store' });
     return handle(res);
   },
+
+  async deleteMeeting(id: string) {
+    const res = await fetch(`${BASE}/api/meetings/${id}`, {
+      method: 'DELETE',
+    });
+    return handle(res);
+  },
 };

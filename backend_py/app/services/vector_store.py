@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional
 import numpy as np
 
 try:
@@ -9,14 +9,13 @@ except Exception:
     faiss = None  # type: ignore
     _has_faiss = False
 
+# Pinecone (optional) - used when VECTOR_BACKEND=pinecone
 _has_pinecone = False
 try:
-    # pinecone v2 client
-    from pinecone import Pinecone, ServerlessSpec
+    from pinecone import Pinecone
     _has_pinecone = True
 except Exception:
     Pinecone = None  # type: ignore
-    ServerlessSpec = None  # type: ignore
     _has_pinecone = False
 
 # Two separate indexes for title and summary scopes
@@ -25,13 +24,11 @@ class VectorStore:
         self.dim = dim
         self.backend = os.getenv("VECTOR_BACKEND", "faiss").lower()
         self.use_faiss = _has_faiss and self.backend == "faiss"
-        self.use_pinecone = _has_pinecone and self.backend == "pinecone"
         # in-memory ids and vectors for fallback
         self._ids_title: List[str] = []
         self._vecs_title: List[np.ndarray] = []
         self._ids_summary: List[str] = []
         self._vecs_summary: List[np.ndarray] = []
-        # FAISS init
         if self.use_faiss:
             self._index_title = faiss.IndexFlatIP(dim)
             self._index_summary = faiss.IndexFlatIP(dim)
@@ -39,37 +36,30 @@ class VectorStore:
             self._index_title = None
             self._index_summary = None
 
-        # Pinecone init
-        self._pc = None
-        self._pc_index = None
-        self._pc_index_name = None
+        # Pinecone init if selected
+        self.use_pinecone = (self.backend == "pinecone")
         if self.use_pinecone:
+            if not _has_pinecone:
+                raise RuntimeError("Pinecone client not installed. Add 'pinecone' to requirements and set VECTOR_BACKEND=pinecone")
             api_key = os.getenv("PINECONE_API_KEY")
             index_name = os.getenv("PINECONE_INDEX")
-            cloud = os.getenv("PINECONE_CLOUD", "aws")  # for serverless spec
-            region = os.getenv("PINECONE_REGION", "us-east-1")
+            host = os.getenv("PINECONE_HOST")
             if not api_key or not index_name:
-                # disable pinecone if not properly configured; fallback to memory
-                self.use_pinecone = False
-            else:
-                self._pc = Pinecone(api_key=api_key)  # type: ignore
-                self._pc_index_name = index_name
-                # Create index if missing (serverless)
-                try:
-                    existing = {i.name for i in self._pc.list_indexes()}  # type: ignore
-                except Exception:
-                    existing = set()
-                if index_name not in existing:
-                    # Create with cosine metric to match our unit vector similarity
-                    if ServerlessSpec is None:
-                        raise RuntimeError("Pinecone ServerlessSpec unavailable; install pinecone-client >=2.x")
-                    self._pc.create_index(  # type: ignore
-                        name=index_name,
-                        dimension=self.dim,
-                        metric="cosine",
-                        spec=ServerlessSpec(cloud=cloud, region=region),
-                    )
-                self._pc_index = self._pc.Index(index_name)  # type: ignore
+                raise RuntimeError("PINECONE_API_KEY and PINECONE_INDEX must be set in backend_py/.env when using Pinecone")
+            self._pc = Pinecone(api_key=api_key)
+            # Connect to existing index. If host provided (serverless), use it.
+            try:
+                if host:
+                    self._index = self._pc.Index(host=host)
+                else:
+                    self._index = self._pc.Index(index_name)
+            except Exception as e:
+                raise RuntimeError(f"Failed to initialize Pinecone index '{index_name}'. Ensure it exists and PINECONE_HOST (if serverless) is correct: {e}")
+            # Target index dimension: if provided via env, use it to fit vectors
+            try:
+                self._index_dim = int(os.getenv("PINECONE_DIM", "0")) or self.dim
+            except Exception:
+                self._index_dim = self.dim
 
     @staticmethod
     def _to_unit(vec: np.ndarray) -> np.ndarray:
@@ -95,15 +85,19 @@ class VectorStore:
             self._vecs_summary.extend(arrs)
 
     def upsert(self, scope: str, id: str, vector: List[float]):
-        # simple approach: append; rebuild is handled by initial load. For true upsert we'd need id->pos mapping.
-        if self.use_pinecone and self._pc_index is not None:
-            try:
-                vec = self._to_unit(np.array(vector, dtype="float32")).tolist()
-                self._pc_index.upsert(vectors=[{"id": id, "values": vec}], namespace=scope)  # type: ignore
-                return
-            except Exception:
-                # fallback to in-memory if pinecone fails
-                pass
+        # Pinecone path
+        if self.use_pinecone:
+            namespace = "title" if scope == "title" else "summary"
+            values = vector
+            # Fit vector to index dimension if necessary
+            if hasattr(self, "_index_dim") and self._index_dim:
+                if len(values) < self._index_dim:
+                    values = [*values, *([0.0] * (self._index_dim - len(values)))]
+                elif len(values) > self._index_dim:
+                    values = values[: self._index_dim]
+            self._index.upsert(vectors=[{"id": id, "values": values}], namespace=namespace)
+            return
+        # FAISS / fallback path
         if self.use_faiss:
             self._faiss_add(scope, [id], [vector])
         else:
@@ -114,48 +108,46 @@ class VectorStore:
         vecs = [v for _, v in items]
         if not ids:
             return
-        if self.use_pinecone and self._pc_index is not None:
-            try:
-                payload = []
-                for i, v in zip(ids, vecs):
-                    vec = self._to_unit(np.array(v, dtype="float32")).tolist()
-                    payload.append({"id": i, "values": vec})
-                # batch upserts
-                for start in range(0, len(payload), 100):
-                    batch = payload[start : start + 100]
-                    self._pc_index.upsert(vectors=batch, namespace=scope)  # type: ignore
-                return
-            except Exception:
-                pass
+        if self.use_pinecone:
+            namespace = "title" if scope == "title" else "summary"
+            vecs = []
+            tgt = getattr(self, "_index_dim", None)
+            for i, v in items:
+                values = v
+                if tgt:
+                    if len(values) < tgt:
+                        values = [*values, *([0.0] * (tgt - len(values)))]
+                    elif len(values) > tgt:
+                        values = values[:tgt]
+                vecs.append({"id": i, "values": values})
+            self._index.upsert(vectors=vecs, namespace=namespace)
+            return
         if self.use_faiss:
             self._faiss_add(scope, ids, vecs)
         else:
             self._fallback_add(scope, ids, vecs)
 
     def search(self, scope: str, query_vec: List[float], k: int = 10) -> List[Tuple[str, float]]:
-        q_vec = self._to_unit(np.array(query_vec, dtype="float32"))
-        if self.use_pinecone and self._pc_index is not None:
-            try:
-                res = self._pc_index.query(  # type: ignore
-                    vector=q_vec.tolist(),
-                    top_k=k,
-                    namespace=scope,
-                    include_values=False,
-                    include_metadata=False,
-                )
-                matches = getattr(res, "matches", []) or res.get("matches", []) if isinstance(res, dict) else []
-                out: List[Tuple[str, float]] = []
-                for m in matches:
-                    mid = getattr(m, "id", None) or (m.get("id") if isinstance(m, dict) else None)
-                    score = getattr(m, "score", None) or (m.get("score") if isinstance(m, dict) else None)
-                    if mid is not None and score is not None:
-                        out.append((str(mid), float(score)))
-                return out
-            except Exception:
-                # fall back to local search
-                pass
-
-        q = q_vec.reshape(1, -1)
+        if self.use_pinecone:
+            namespace = "title" if scope == "title" else "summary"
+            qv = query_vec
+            tgt = getattr(self, "_index_dim", None)
+            if tgt:
+                if len(qv) < tgt:
+                    qv = [*qv, *([0.0] * (tgt - len(qv)))]
+                elif len(qv) > tgt:
+                    qv = qv[:tgt]
+            res = self._index.query(vector=qv, top_k=k, include_values=False, namespace=namespace)
+            matches = getattr(res, "matches", []) or res.get("matches", [])  # supports different client returns
+            out: List[Tuple[str, float]] = []
+            for m in matches:
+                mid = getattr(m, "id", None) or (m.get("id") if isinstance(m, dict) else None)
+                score = getattr(m, "score", None) or (m.get("score") if isinstance(m, dict) else None)
+                if mid is not None and score is not None:
+                    out.append((str(mid), float(score)))
+            return out
+        # Local FAISS / cosine fallback
+        q = self._to_unit(np.array(query_vec, dtype="float32")).reshape(1, -1)
         if scope == "title":
             ids, vecs = self._ids_title, self._vecs_title
             index = self._index_title
@@ -165,14 +157,39 @@ class VectorStore:
         if self.use_faiss and index is not None:
             D, I = index.search(q, min(k, len(ids)))  # type: ignore
             return [(ids[i], float(D[0][j])) for j, i in enumerate(I[0]) if 0 <= i < len(ids)]
-        # fallback cosine
         if not ids:
             return []
-        mat = np.stack(vecs, axis=0)  # [N, dim]
-        sims = mat @ q.T  # [N,1]
+        mat = np.stack(vecs, axis=0)
+        sims = mat @ q.T
         sims = sims.reshape(-1)
         topk_idx = np.argsort(-sims)[:k]
         return [(ids[i], float(sims[i])) for i in topk_idx]
+
+    def delete(self, id: str):
+        # Pinecone deletion for both namespaces
+        if self.use_pinecone:
+            try:
+                self._index.delete(ids=[id], namespace="title")
+            except Exception:
+                pass
+            try:
+                self._index.delete(ids=[id], namespace="summary")
+            except Exception:
+                pass
+            return
+        # Best-effort local deletion (non-FAISS path keeps vectors in memory)
+        if id in self._ids_title:
+            idxs = [i for i, x in enumerate(self._ids_title) if x == id]
+            for i in reversed(idxs):
+                del self._ids_title[i]
+                if i < len(self._vecs_title):
+                    del self._vecs_title[i]
+        if id in self._ids_summary:
+            idxs = [i for i, x in enumerate(self._ids_summary) if x == id]
+            for i in reversed(idxs):
+                del self._ids_summary[i]
+                if i < len(self._vecs_summary):
+                    del self._vecs_summary[i]
 
 # Global store singleton
 _store: Optional[VectorStore] = None

@@ -206,3 +206,18 @@ async def email_summary(id: str, body: dict):
         raise HTTPException(status_code=500, detail=f"Failed to send email: {e}")
 
 
+
+@router.delete("/{id}")
+async def delete_meeting(id: str):
+    # Delete from DB first
+    res = await db()[COLLECTION].delete_one({"_id": oid(id)})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Not found")
+    # Remove vectors (best-effort). For Pinecone, dim is irrelevant due to stored index config.
+    try:
+        store = get_store(768)
+        store.delete(id)
+    except Exception:
+        pass
+    return {"ok": True}
+

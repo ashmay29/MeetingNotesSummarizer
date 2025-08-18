@@ -10,5 +10,4 @@ aiosmtplib==3.0.1
 google-generativeai>=0.7.0
 Markdown==3.6
 numpy==1.26.4
-faiss-cpu==1.7.4
-pinecone-client>=3.0.0
+pinecone>=3.0.0
