@@ -27,7 +27,7 @@ app = FastAPI(title="meeting-notes-summarizer")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in CORS_ORIGIN.split(",") if o.strip()],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
